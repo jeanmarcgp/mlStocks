@@ -1,0 +1,20 @@
+Package: mlStocks
+Type: Package
+Title: Machine Learning Predictive Analysis for Stocks
+Version: 0.10.01
+Date: 2017-01-16
+Author@R: person("Patenaude", "Jean-Marc", , "jeanmarc@dimensionalresearch.com", c("aut", "cre"))
+Description: More about what it does (maybe more than one line)
+License: GPL-2
+LazyData: TRUE
+Depends:
+    R (>= 3.3.0),
+    xtsanalytics,
+    xgboost,
+    h2o
+Suggests:
+    testthat,
+    knitr,
+    rmarkdown
+RoxygenNote: 5.0.1
+VignetteBuilder: knitr
