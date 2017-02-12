@@ -5,8 +5,9 @@
 \title{Build an equity curve based on multiple successive overnight trades}
 \usage{
 trade_overnight(predmat, maxposn = 10, maxweight = 0.25,
-  longthresh = 0.01, shortthresh = -100, dateseries = NA, datecol = NA,
-  yhatcol = "yhat", retcol = "rets")
+  longthresh = 0.01, shortthresh = -100, dolvolname = NA,
+  dolvolthresh = 1e+06, dateseries = NA, datecol = NA, yhatcol = "yhat",
+  retcol = "rets")
 }
 \arguments{
 \item{predmat}{A dataframe or xts matrix containing  at minumum a date column, a
@@ -30,6 +31,15 @@ threshold is compared with the yhatcol value for this decision.}
 \item{shortthresh}{The threshold below which a short trade is taken.  This
 threshold is compared with the yhatcol value for this decision.
 NOT YET IMPLEMENTED!}
+
+\item{dolvolname}{The column name in predmat that corresponds to the dollar
+volume traded for the stock. Typically, this will be a 3 month
+rolling daily dollar volume average.  It is used to filter
+out stocks that are thinly traded by eliminating trades when
+the dollar volume is less than dolvolthresh.}
+
+\item{dolvolthresh}{The dollar volume threshold used to filter out stock trades
+below this number.}
 
 \item{dateseries}{An optional xts series (such as SPY or GSPC) that has all dates
 the market is open.  This is used to fill in dates not present

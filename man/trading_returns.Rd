@@ -26,9 +26,9 @@ Returns the average trading return over all flagged trades in the
 A two column matrix is provided containing a prediction in
 column 1 (yhat), and the actual trading returns in column 2 (y).
 The function first identifies valid long and short trades by
-examining yhat, and flagging the trade as long if yhat >= long_thres,
-or as a short if yhat <= short_thres.  Vectors with yhat values
-in the band between the two thresholds are ignored (deemed not worth
-trading).
+examining yhat, and flagging the trade as a long trade
+if yhat >= long_thres, or as a short trade if yhat <= short_thres.
+Vectors with yhat values in the band between the two thresholds
+are ignored (deemed not worth trading).
 }
 

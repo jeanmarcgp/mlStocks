@@ -56,6 +56,15 @@
 #'                    threshold is compared with the yhatcol value for this decision.
 #'                    NOT YET IMPLEMENTED!
 #'
+#' @param dolvolname  The column name in predmat that corresponds to the dollar
+#'                    volume traded for the stock. Typically, this will be a 3 month
+#'                    rolling daily dollar volume average.  It is used to filter
+#'                    out stocks that are thinly traded by eliminating trades when
+#'                    the dollar volume is less than dolvolthresh.
+#'
+#' @param dolvolthresh The dollar volume threshold used to filter out stock trades
+#'                     below this number.
+#'
 #' @param dateseries  An optional xts series (such as SPY or GSPC) that has all dates
 #'                    the market is open.  This is used to fill in dates not present
 #'                    in predmat to carry forward the equity curve.  This way, the
@@ -99,13 +108,15 @@
 #' @export
 #----------------------------------------------------------------------------------
 trade_overnight <- function(predmat, maxposn = 10, maxweight = 0.25,
-                            longthresh = 0.01, shortthresh = -100, dateseries = NA,
+                            longthresh = 0.01, shortthresh = -100, dolvolname = NA,
+                            dolvolthresh = 1e6, dateseries = NA,
                             datecol = NA, yhatcol = "yhat", retcol = "rets") {
 
   # ###########  For code testing only ##########
   # library(xtsanalytics)
   # # Use embedded Earnings dataset to test...
-  # predmat           = Earnings[1:3000, c("Ret1", "dtBuy", "Ticker")]
+  # dolvolname        = "DolVolDaily3m"
+  # predmat           = Earnings[1:3000, c("Ret1", "dtBuy", "Ticker", dolvolname)]
   # colnames(predmat)[1:2] = c("rets", "date")
   # set.seed(123)     # Generate somewhat correlated yhat to rets
   # predmat$yhat      = predmat$rets + runif(n = nrow(predmat), min = -0.25, max = 0.25)
@@ -115,6 +126,7 @@ trade_overnight <- function(predmat, maxposn = 10, maxweight = 0.25,
   # datecol           = "date"
   # maxweight         = 0.2
   # maxposn           = 8
+  # dolvolthresh      = 5  # in $M
   # spy               = xts_data["2011", ]
   # dateseries        = spy
   # longthresh        = 0.2
@@ -158,6 +170,12 @@ trade_overnight <- function(predmat, maxposn = 10, maxweight = 0.25,
     shortrows    <- ifelse(as.numeric(df[, yhatcol]) <= shortthresh, TRUE, FALSE)
     eligiblerows <- longrows | shortrows
     df           <- df[eligiblerows, ]
+
+    # remove thinly traded stocks if dolvolname is provided
+    if(!is.na(dolvolname))
+      df           <- df[df[, dolvolname] >= dolvolthresh, ]
+
+
     allstocks    <- nrow(df)
 
     #----------------------------------------------------------------------

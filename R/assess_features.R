@@ -81,22 +81,22 @@ assess_features <- function(features, train_set, val_set, Nrepeat = 1, mlalgo = 
                             meritFUNpar = list(long_thres = 0, short_thres = 0)) {
 
   # ######## For Testing Code #######
-  # library(xtsanalytics)
+  # library(mlStocks)
   # features          = c("Perc52WkHiRank", "PQMaxNDayRetRank")
   # train_set         = Earnings[1:3000, c("Ret1", features)]
   # val_set           = Earnings[3001:3500, c("Ret1", features)]
-  # Nrepeat    = 2
-  # mlalgo     = "xgboost"
-  # mlpar      = pad_mlpar(mlalgo = mlalgo)
-  #
-  # meritFUN   = "trading_returns"
+  # Nrepeat     = 2
+  # mlalgo      = "xgboost"
+  # mlpar       = pad_mlpar(mlalgo = mlalgo)
+  # meritFUN    = "trading_returns"
+  # meritFUN    = "RMSE"
   # meritFUNpar = list(long_thres = 0.005, short_thres = -75)
   #
   # #######
 
-  #--------------------------------------------------------------
-  # Extract the relevant columns, train the model and predict
-  #--------------------------------------------------------------
+  #-------------------------------------------------------------------
+  # Extract the relevant columns to create train & validation sets
+  #-------------------------------------------------------------------
   if(class(features) == "character") {
     traindata <- train_set[, c(1, which(colnames(train_set) %in% features))]
     valdata   <- val_set[, c(1,  which(colnames(val_set) %in% features))]
@@ -109,13 +109,25 @@ assess_features <- function(features, train_set, val_set, Nrepeat = 1, mlalgo = 
   stopifnot(nc == ncol(valdata))
 
   #-------------------------------------------------------------------
+  # Ensure meritFUNpar has valid parameters for chosen meritFUN
+  #-------------------------------------------------------------------
+  if(meritFUN %in% c("trading_returns")) {
+    if(!is.numeric(meritFUNpar[["long_thres"]]))
+      stop("meritFUNpar$long_thresh must be specified and numeric.")
+
+    if(!is.numeric(meritFUNpar[["short_thres"]]))
+      stop("meritFUNpar$short_thresh must be specified and numeric.")
+  }
+
+  #-------------------------------------------------------------------
   # MAIN LOOP:  Repeat train-predict N times and compile stats
   #-------------------------------------------------------------------
   FOMdf  <- NULL
   for(i in 1:Nrepeat) {
-
-    sprint("\nFunction assess_features: Run # %s", i)
-    sprint("----------------------------------------")
+    if(Nrepeat > 1) {
+      sprint("\nFunction assess_features: Run # %s", i)
+      sprint("----------------------------------------")
+    }
 
     yhat <- ml_trainpredict(train_set = traindata,
                             valid_set = valdata,
@@ -123,15 +135,10 @@ assess_features <- function(features, train_set, val_set, Nrepeat = 1, mlalgo = 
                             mlalgo    = mlalgo,
                             mlpar     = mlpar)
 
-
-    # Is this needed?  yhat already includes ycol...
-    predmat <- cbind(yhat[, 1, drop = FALSE], valdata[, 1, drop = FALSE])
-
-
-    sprint("Computing figure of merit.")
+    # Compute figure of merit
     FOMvec <- switch(meritFUN,
-                     MSD             = MSD(predmat),
-                     trading_returns = trading_returns(predmat,
+                     RMSE            = RMSE(yhat),
+                     trading_returns = trading_returns(yhat,
                                                        long_thres  = meritFUNpar$long_thres,
                                                        short_thres = meritFUNpar$short_thres),
                      stop("meritFUN not a valid function in switch statement.")
@@ -145,89 +152,55 @@ assess_features <- function(features, train_set, val_set, Nrepeat = 1, mlalgo = 
   #---------------------------------------------------------
   # Build the return list
   #---------------------------------------------------------
-  df       <- data.frame(alpha_mean  = mean(FOMdf$Trade_Alpha),
-                         alpha_sd    = sd(FOMdf$Trade_Alpha),
-                         PctTraded   = mean(FOMdf$PctTraded),
-                         PctLongs    = mean(FOMdf$PctLongs),
-                         PctShorts   = mean(FOMdf$PctShorts),
-                         Nmarket     = FOMvec["Nmarket"]
-                         )
-
-  FOMlist  <- list(features   = features,
-                   summary    = df,
-                   values     = FOMdf
-                   )
+  if(meritFUN %in% c("trading_returns")) {
+    df      <- data.frame(alpha_mean  = mean(FOMdf$Trade_Alpha),
+                          alpha_sd    = sd(FOMdf$Trade_Alpha),
+                          PctTraded   = mean(FOMdf$PctTraded),
+                          PctLongs    = mean(FOMdf$PctLongs),
+                          PctShorts   = mean(FOMdf$PctShorts),
+                          Nmarket     = FOMvec["Nmarket"])
+    FOMlist <- list(features   = features,
+                    summary    = df,
+                    values     = FOMdf )
+  } else {
+    colnames(FOMdf) <- "RMSE"
+    FOMlist <- list(features   = features,
+                    values     = FOMdf)
+  }
 
   return(FOMlist)
 
 }  ##########  END FUNCTION assess_features  ##########
 
-# switch(mlalgo,
-#        rf     = {
-#          #----------------------------------------------------------------
-#          # Traditional Random Forest model selected.
-#          #----------------------------------------------------------------
-#          sprint("Training traditional random forest model...")
-#          ml  <- randomForest::randomForest(y          = traindata[, 1],
-#                                            x          = traindata[, 2:nc],
-#                                            mtry       = mlpar$mtry,
-#                                            ntree      = mlpar$ntree,
-#                                            na.action  = na.action
-#          )
-#          sprint("predicting random forest model...")
-#          yhat    <- predict(ml, valdata)
-#        },
-#        h2o_rf = {
-#          #----------------------------------------------------------------
-#          # h2o Random Forest model selected.
-#          #----------------------------------------------------------------
-#          sprint("Training h2o random forest model...")
-#          h2o::h2o.removeAll()          # Clean slate - in case cluster was already running
-#
-#          y          <- colnames(traindata)[1]
-#          train      <- h2o::as.h2o(traindata)
-#          validation <- h2o::as.h2o(valdata)
-#          ml <-  h2o::h2o.randomForest(x                 = features,
-#                                       y                 = y,
-#                                       training_frame    = train,
-#                                       #validation_frame  = validation,
-#                                       mtries            = mlpar$mtry,
-#                                       ntrees            = mlpar$ntree,
-#                                       min_rows          = mlpar$min_rows,
-#                                       max_depth         = mlpar$max_depth
-#          )
-#
-#          sprint("predicting h2o random forest model...")
-#          yhat    <- as.data.frame(predict(ml, validation))
-#
-#        },
-#        {
-#          stop("mlalgo reached default in switch statement.")
-#        })
 
 
 #-----------------------------------------------------------------------------------
-#  FUNCTION MSD:
+#  FUNCTION RMSE:
 #
-#' Calculate the Mean-Squared Difference of a 2 column matrix
+#' Calculate the Root Mean Square Error of a 2 column matrix
 #'
 #' Given a two column matrix (typically yhat and y), this function
-#' calculates the mean-squared difference and returns the result.
+#' calculates the root mean square error between y and yhat.
+#'
+#' ssuming N is the number or rows, the calculation for the RMSE
+#' value is done according to the following formula:
+#'
+#' \deqn{\sqrt \sum(yhat - y)^2 / N}
 #'
 #' @param mat  The two column matrix used to calculate the mean squared difference.
 #'
-#' @return Returns the mean-squared difference of the two columns in the matrix.
+#' @return Returns the RMS error of the two columns in the matrix.
 #'
 #' @export
 #-----------------------------------------------------------------------------------
-MSD <- function(mat) {
+RMSE <- function(mat) {
   stopifnot(ncol(mat) == 2)
 
   #mat      <- matrix(c(1,2,3,1.1, 2.2, 3.25), ncol = 2)
   ######
 
   mdiff    <- mat[,2] - mat[, 1]
-  msd      <- sum(mdiff^2) / nrow(mat)
+  msd      <- sqrt(sum(mdiff^2) / nrow(mat))
 
   return(msd)
 
@@ -241,10 +214,10 @@ MSD <- function(mat) {
 #' A two column matrix is provided containing a prediction in
 #' column 1 (yhat), and the actual trading returns in column 2 (y).
 #' The function first identifies valid long and short trades by
-#' examining yhat, and flagging the trade as long if yhat >= long_thres,
-#' or as a short if yhat <= short_thres.  Vectors with yhat values
-#' in the band between the two thresholds are ignored (deemed not worth
-#' trading).
+#' examining yhat, and flagging the trade as a long trade
+#' if yhat >= long_thres, or as a short trade if yhat <= short_thres.
+#' Vectors with yhat values in the band between the two thresholds
+#' are ignored (deemed not worth trading).
 #'
 #' @param mat          The two column matrix to calculate the trading returns.
 #'                     The first column is the prediction (yhat), while the

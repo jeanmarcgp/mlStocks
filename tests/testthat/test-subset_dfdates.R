@@ -11,7 +11,7 @@ library(testthat)
 test_that("Testing basic functionality", {
 
   library(testthat)
-  library(xtsanalytics)
+  library(mlStocks)
   df        = Earnings[, c(1,2,13)]
   timeframe = "2011-01-03/2011-01-21"
   datecol   = 2

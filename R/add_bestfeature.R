@@ -2,6 +2,10 @@
 # FILE add_bestfeature.R
 #
 #
+# NOTE:  Add the following to forward search
+#  - hard_stoplevel to put a hard stop at a given search level
+#  - stop_perflevel to stop searching after N levels with lower
+#    performance is reached.
 ####################################################################################
 #
 #' Add the best feature from a list to improve an existing set
